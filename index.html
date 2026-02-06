@@ -80,9 +80,18 @@
   <header>
     <div class="wrap">
       <div class="topbar">
-        <div>
-          <div style="font-weight:700;font-size:20px">Paid Ads Performance Dashboard</div>
-          <div class="muted">Live from Google Sheets</div>
+        
+        <div style="display:flex; align-items:center; gap:12px;">
+          <<img
+  src="https://prodigitalmarketinguk.github.io/client-dashboard/assets/gac-logo.png"
+  alt="Global Adventure Challenges logo"
+  style="height:24px; width:auto; opacity:0.9;"
+/>
+
+          <div>
+            <div style="font-weight:700;font-size:20px">Paid Ads Performance Dashboard</div>
+            <div class="muted">Live from Google Sheets</div>
+          </div>
         </div>
         <div class="pill" id="lastUpdated">Loading…</div>
       </div>
@@ -90,13 +99,15 @@
       <div class="tabs">
         <button class="tabbtn active" id="tab-meta" type="button">Meta Ads</button>
         <button class="tabbtn" id="tab-google" type="button">Google Ads</button>
+        <button class="tabbtn" id="tab-meta-last" type="button">Meta Last Month</button>
+        <button class="tabbtn" id="tab-google-last" type="button">Google Last Month</button>
       </div>
     </div>
   </header>
 
   <main class="wrap">
 
-    <!-- META -->
+    <!-- META CURRENT -->
     <section class="view active" id="view-meta">
       <section class="kpis">
         <div class="card"><div class="label">Meta Spend</div><div class="value" id="metaSpend">–</div></div>
@@ -138,7 +149,7 @@
       </section>
     </section>
 
-    <!-- GOOGLE -->
+    <!-- GOOGLE CURRENT -->
     <section class="view" id="view-google">
       <section class="kpis">
         <div class="card"><div class="label">Google Spend</div><div class="value" id="gSpend">–</div></div>
@@ -180,15 +191,103 @@
       </section>
     </section>
 
+    <!-- META LAST MONTH (LITE) -->
+    <section class="view" id="view-meta-last">
+      <section class="kpis">
+        <div class="card"><div class="label">Meta Spend</div><div class="value" id="metaLastSpend">–</div></div>
+        <div class="card"><div class="label">Meta Leads</div><div class="value" id="metaLastLeads">–</div></div>
+        <div class="card"><div class="label">Meta CPL</div><div class="value" id="metaLastCpl">–</div></div>
+        <div class="card"><div class="label">Budget Remaining</div><div class="value">–</div></div>
+        <div class="card"><div class="label">% Budget Used</div><div class="value">–</div></div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h3>Top Ad Sets by Spend</h3>
+          <canvas id="metaLastSpendChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Top Ad Sets by Leads</h3>
+          <canvas id="metaLastLeadsChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:14px">
+        <h3>Ad Set Performance (sorted by Leads)</h3>
+        <div class="muted" style="margin-bottom:10px">Source: Meta Last Month (published CSV)</div>
+        <div class="tableWrap">
+          <table id="metaLastTable">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Ad Set</th>
+                <th class="num">Spend</th>
+                <th class="num">Leads</th>
+                <th class="num">CPL</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- GOOGLE LAST MONTH (LITE) -->
+    <section class="view" id="view-google-last">
+      <section class="kpis">
+        <div class="card"><div class="label">Google Spend</div><div class="value" id="gLastSpend">–</div></div>
+        <div class="card"><div class="label">Google Leads</div><div class="value" id="gLastLeads">–</div></div>
+        <div class="card"><div class="label">Google CPL</div><div class="value" id="gLastCpl">–</div></div>
+        <div class="card"><div class="label">Budget Remaining</div><div class="value">–</div></div>
+        <div class="card"><div class="label">% Budget Used</div><div class="value">–</div></div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h3>Top Ad Groups by Spend</h3>
+          <canvas id="gLastSpendChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Top Ad Groups by Leads</h3>
+          <canvas id="gLastLeadsChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:14px">
+        <h3>Ad Group Performance (sorted by Leads)</h3>
+        <div class="muted" style="margin-bottom:10px">Source: Google Last Month (published CSV)</div>
+        <div class="tableWrap">
+          <table id="gLastTable">
+            <thead>
+              <tr>
+                <th>Ad Group</th>
+                <th class="num">Spend</th>
+                <th class="num">Leads</th>
+                <th class="num">CPL</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
   </main>
 
   <script>
-    // ====== CSV URLS ======
+    // ====== CSV URLS (CURRENT - unchanged) ======
     const META_CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
     const GOOGLE_CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1321414260&single=true&output=csv";
+
+    // ====== CSV URLS (LAST MONTH) ======
+    const META_LAST_MONTH_CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=2141513702&single=true&output=csv";
+
+    const GOOGLE_LAST_MONTH_CSV_URL =
+      "PASTE_GOOGLE_LAST_MONTH_CSV_URL_HERE";
 
     // ====== FORMAT HELPERS ======
     const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
@@ -247,28 +346,25 @@
       return out;
     }
 
-    // ====== TAB SWITCHING ======
-    const tabMeta = document.getElementById("tab-meta");
-    const tabGoogle = document.getElementById("tab-google");
-    const viewMeta = document.getElementById("view-meta");
-    const viewGoogle = document.getElementById("view-google");
+    // ====== TAB SWITCHING (4 tabs) ======
+    const tabs = [
+      { btn: document.getElementById("tab-meta"), view: document.getElementById("view-meta") },
+      { btn: document.getElementById("tab-google"), view: document.getElementById("view-google") },
+      { btn: document.getElementById("tab-meta-last"), view: document.getElementById("view-meta-last") },
+      { btn: document.getElementById("tab-google-last"), view: document.getElementById("view-google-last") },
+    ];
 
-    tabMeta.addEventListener("click", () => {
-      tabMeta.classList.add("active");
-      tabGoogle.classList.remove("active");
-      viewMeta.classList.add("active");
-      viewGoogle.classList.remove("active");
-    });
-
-    tabGoogle.addEventListener("click", () => {
-      tabGoogle.classList.add("active");
-      tabMeta.classList.remove("active");
-      viewGoogle.classList.add("active");
-      viewMeta.classList.remove("active");
-    });
+    function activateTab(index){
+      tabs.forEach((t,i)=>{
+        t.btn.classList.toggle("active", i===index);
+        t.view.classList.toggle("active", i===index);
+      });
+    }
+    tabs.forEach((t,i)=>t.btn.addEventListener("click", ()=>activateTab(i)));
 
     // ====== CHARTS ======
     let metaSpendChart, metaLeadsChart, gSpendChart, gLeadsChart;
+    let metaLastSpendChart, metaLastLeadsChart, gLastSpendChart, gLastLeadsChart;
 
     function renderSpendChart(canvasId, labels, values){
       const ctx = document.getElementById(canvasId);
@@ -297,7 +393,7 @@
       });
     }
 
-    // ====== META RENDER (RESTORED BUDGET REMAINING) ======
+    // ====== META CURRENT (UNCHANGED LOGIC) ======
     function renderMeta(rows){
       const cleaned = rows.map(r => ({
         campaign: (r.campaign ?? "").trim(),
@@ -310,14 +406,10 @@
         delivery_strategy: (r.delivery_strategy ?? "").trim()
       }));
 
-      // Find remaining in two possible formats:
-      // A) campaign = "Monthly Budget Remaining" and ad_set contains the £ value (your common layout)
-      // B) orphan currency row where campaign/ad_set is just "£1903.26"
       let remaining = 0;
 
       const labeled = cleaned.find(r => r.campaign.toLowerCase().startsWith("monthly budget"));
       if (labeled) {
-        // usually the number is in ad_set (col B) for the export
         remaining = num(labeled.ad_set) || num(labeled.budget) || num(labeled.spend);
       } else {
         const orphan = cleaned.find(r =>
@@ -330,11 +422,9 @@
         if (orphan) remaining = num(orphan.campaign || orphan.ad_set);
       }
 
-      // Monthly budget: prefer Total Budget & Spend row if present, else infer
       const totalRow = cleaned.find(r => r.campaign.toLowerCase() === "total budget & spend");
       const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
 
-      // Detail rows = real ad sets only (exclude remaining/summary rows)
       const detailRows = cleaned.filter(r => {
         if (!r.ad_set) return false;
         if (r.campaign.toLowerCase().startsWith("monthly budget")) return false;
@@ -356,7 +446,6 @@
       document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
       document.getElementById("metaUsedPct").textContent = inferredBudget ? usedPct.toFixed(1) + "%" : "–";
 
-      // Table sorted by leads
       detailRows.sort((a,b) => num(b.leads) - num(a.leads));
 
       const tbody = document.querySelector("#metaTable tbody");
@@ -393,7 +482,7 @@
       metaLeadsChart = renderLeadsChart("metaLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
-    // ====== GOOGLE RENDER (BUDGET REMAINING FROM ORPHAN ROW) ======
+    // ====== GOOGLE CURRENT (UNCHANGED LOGIC) ======
     function renderGoogle(rows){
       const cleaned = rows
         .map(r => ({
@@ -476,6 +565,114 @@
       gLeadsChart = renderLeadsChart("gLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
+    // ====== META LAST MONTH (LITE) ======
+    function renderMetaLast(rows){
+      const cleaned = rows.map(r => ({
+        campaign: (r.campaign ?? "").trim(),
+        ad_set: (r.ad_set ?? "").trim(),
+        spend: (r.spend ?? "").trim(),
+        leads: (r.leads ?? "").trim(),
+        cpl: (r.cpl ?? "").trim()
+      })).filter(r => r.campaign || r.ad_set);
+
+      const detailRows = cleaned.filter(r => r.ad_set && r.campaign);
+
+      const totalSpend = detailRows.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = detailRows.reduce((s,it)=>s+num(it.leads),0);
+      const blendedCpl = totalLeads === 0 ? null : totalSpend / totalLeads;
+
+      document.getElementById("metaLastSpend").textContent = money(totalSpend);
+      document.getElementById("metaLastLeads").textContent = intFmt(totalLeads);
+      document.getElementById("metaLastCpl").textContent = blendedCpl === null ? "–" : money(blendedCpl);
+
+      detailRows.sort((a,b) => num(b.leads) - num(a.leads));
+
+      const tbody = document.querySelector("#metaLastTable tbody");
+      tbody.innerHTML = "";
+      for (const it of detailRows){
+        const spend = num(it.spend);
+        const leads = num(it.leads);
+        const rowCpl = leads === 0 ? null : spend / leads;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.campaign || "—"}</td>
+          <td>${it.ad_set || "—"}</td>
+          <td class="num">${money(spend)}</td>
+          <td class="num">${intFmt(leads)}</td>
+          <td class="num">${rowCpl === null ? "–" : money(rowCpl)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      const bySpend = [...detailRows]
+        .map(it => ({ name: it.ad_set, v: num(it.spend) }))
+        .sort((a,b)=>b.v-a.v).slice(0,8);
+
+      const byLeads = [...detailRows]
+        .map(it => ({ name: it.ad_set, v: num(it.leads) }))
+        .sort((a,b)=>b.v-a.v).slice(0,8);
+
+      if (metaLastSpendChart) metaLastSpendChart.destroy();
+      if (metaLastLeadsChart) metaLastLeadsChart.destroy();
+
+      metaLastSpendChart = renderSpendChart("metaLastSpendChart", bySpend.map(x=>x.name), bySpend.map(x=>x.v));
+      metaLastLeadsChart = renderLeadsChart("metaLastLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
+    }
+
+    // ====== GOOGLE LAST MONTH (LITE) ======
+    function renderGoogleLast(rows){
+      const cleaned = rows.map(r => ({
+        ad_group: (r.ad_group ?? "").trim(),
+        spend: (r.spend ?? "").trim(),
+        leads: (r.leads ?? "").trim(),
+        cpl: (r.cpl ?? "").trim()
+      })).filter(r => r.ad_group);
+
+      const detailRows = cleaned.filter(r => r.ad_group);
+
+      const totalSpend = detailRows.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = detailRows.reduce((s,it)=>s+num(it.leads),0);
+      const blendedCpl = totalLeads === 0 ? null : totalSpend / totalLeads;
+
+      document.getElementById("gLastSpend").textContent = money(totalSpend);
+      document.getElementById("gLastLeads").textContent = intFmt(totalLeads);
+      document.getElementById("gLastCpl").textContent = blendedCpl === null ? "–" : money(blendedCpl);
+
+      detailRows.sort((a,b) => num(b.leads) - num(a.leads));
+
+      const tbody = document.querySelector("#gLastTable tbody");
+      tbody.innerHTML = "";
+      for (const it of detailRows){
+        const spend = num(it.spend);
+        const leads = num(it.leads);
+        const rowCpl = leads === 0 ? null : spend / leads;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.ad_group || "—"}</td>
+          <td class="num">${money(spend)}</td>
+          <td class="num">${intFmt(leads)}</td>
+          <td class="num">${rowCpl === null ? "–" : money(rowCpl)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      const bySpend = [...detailRows]
+        .map(it => ({ name: it.ad_group, v: num(it.spend) }))
+        .sort((a,b)=>b.v-a.v).slice(0,8);
+
+      const byLeads = [...detailRows]
+        .map(it => ({ name: it.ad_group, v: num(it.leads) }))
+        .sort((a,b)=>b.v-a.v).slice(0,8);
+
+      if (gLastSpendChart) gLastSpendChart.destroy();
+      if (gLastLeadsChart) gLastLeadsChart.destroy();
+
+      gLastSpendChart = renderSpendChart("gLastSpendChart", bySpend.map(x=>x.name), bySpend.map(x=>x.v));
+      gLastLeadsChart = renderLeadsChart("gLastLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
+    }
+
     // ====== LOAD ======
     async function fetchCsvObjects(url){
       const res = await fetch(url, { cache:"no-store" });
@@ -490,13 +687,20 @@
 
     async function load(){
       try{
-        const [metaRows, googleRows] = await Promise.all([
+        const urlsToFetch = [
           fetchCsvObjects(META_CSV_URL),
-          fetchCsvObjects(GOOGLE_CSV_URL)
-        ]);
+          fetchCsvObjects(GOOGLE_CSV_URL),
+          (META_LAST_MONTH_CSV_URL && !META_LAST_MONTH_CSV_URL.startsWith("PASTE_")) ? fetchCsvObjects(META_LAST_MONTH_CSV_URL) : Promise.resolve([]),
+          (GOOGLE_LAST_MONTH_CSV_URL && !GOOGLE_LAST_MONTH_CSV_URL.startsWith("PASTE_")) ? fetchCsvObjects(GOOGLE_LAST_MONTH_CSV_URL) : Promise.resolve([]),
+        ];
+
+        const [metaRows, googleRows, metaLastRows, googleLastRows] = await Promise.all(urlsToFetch);
 
         renderMeta(metaRows);
         renderGoogle(googleRows);
+
+        if (metaLastRows.length) renderMetaLast(metaLastRows);
+        if (googleLastRows.length) renderGoogleLast(googleLastRows);
 
         document.getElementById("lastUpdated").textContent =
           "Updated: " + new Date().toLocaleString("en-GB");
