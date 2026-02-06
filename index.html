@@ -130,7 +130,7 @@
       return Number.isFinite(n) ? n : 0;
     }
 
-    function toObjects(rows){
+    function buildObjects(rows){
       const header = rows[0].map(h => h.trim().toLowerCase());
       const out = [];
       for (let i=1;i<rows.length;i++){
@@ -138,11 +138,14 @@
         for (let j=0;j<header.length;j++){
           obj[header[j]] = (rows[i][j] ?? "").trim();
         }
-        // Keep only rows with an ad set name (ignores campaign headers + totals)
-        if (!obj.ad_set) continue;
         out.push(obj);
       }
       return out;
+    }
+
+    function findRow(allRows, adSetName){
+      const target = String(adSetName).trim().toLowerCase();
+      return allRows.find(r => String(r.ad_set || "").trim().toLowerCase() === target) || null;
     }
 
     let spendChart, leadsChart;
@@ -173,20 +176,29 @@
       }
     }
 
-    function renderKpis(items){
-      const totalSpend = items.reduce((s,it)=>s+num(it.spend),0);
-      const totalLeads = items.reduce((s,it)=>s+num(it.leads),0);
-      const totalBudget = items.reduce((s,it)=>s+num(it.budget),0);
-
-      const remaining = totalBudget - totalSpend;
-      const usedPct = totalBudget === 0 ? 0 : (totalSpend / totalBudget) * 100;
+    function renderKpis(adSetRows, allRows){
+      // Spend/leads/CPL based on ad set rows (same as table)
+      const totalSpend = adSetRows.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = adSetRows.reduce((s,it)=>s+num(it.leads),0);
       const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
+
+      // ✅ Monthly budget + remaining pulled from the totals rows
+      // In your Meta_Export:
+      // - "Total Budget & Spend" row: budget column = monthly budget
+      // - "Monthly Budget Remaining" row: spend column = remaining budget (because A is label, C is blank, D holds the number)
+      const totalRow = findRow(allRows, "Total Budget & Spend");
+      const remainingRow = findRow(allRows, "Monthly Budget");
+
+      const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
+      const remaining = remainingRow ? num(remainingRow.spend) : 0;
+
+      const usedPct = monthlyBudget === 0 ? 0 : ((monthlyBudget - remaining) / monthlyBudget) * 100;
 
       document.getElementById("metaSpend").textContent = money(totalSpend);
       document.getElementById("metaLeads").textContent = intFmt(totalLeads);
       document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
-      document.getElementById("metaRemaining").textContent = money(remaining);
-      document.getElementById("metaUsedPct").textContent = usedPct.toFixed(1) + "%";
+      document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
+      document.getElementById("metaUsedPct").textContent = monthlyBudget ? usedPct.toFixed(1) + "%" : "–";
     }
 
     function renderCharts(items){
@@ -225,14 +237,17 @@
       }
 
       const rows = parseCsv(text);
-      const items = toObjects(rows);
+      const allRows = buildObjects(rows);
+
+      // Keep only ad set rows for the table/charts
+      const adSetRows = allRows.filter(r => r.ad_set);
 
       // Sort table rows by most leads first
-      items.sort((a,b) => num(b.leads) - num(a.leads));
+      adSetRows.sort((a,b) => num(b.leads) - num(a.leads));
 
-      renderKpis(items);
-      renderCharts(items);
-      renderTable(items);
+      renderKpis(adSetRows, allRows);
+      renderCharts(adSetRows);
+      renderTable(adSetRows);
 
       document.getElementById("lastUpdated").textContent =
         "Updated: " + new Date().toLocaleString("en-GB");
