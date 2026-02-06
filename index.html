@@ -38,11 +38,6 @@
       font-weight:600;
       cursor:pointer;
     }
-    .tabbtn.activeությ{
-      background:#fff;
-      color:var(--navy);
-      border-color:#fff;
-    }
     .tabbtn.active{
       background:#fff;
       color:var(--navy);
@@ -208,7 +203,6 @@
     function isCurrencyLike(s){
       const t = String(s ?? "").trim();
       if (!t) return false;
-      // Matches: £762.40, 762.40, 762
       return /^£?\d+(\.\d+)?$/.test(t.replace(/,/g,""));
     }
 
@@ -303,27 +297,71 @@
       });
     }
 
-    // ====== META RENDER ======
+    // ====== META RENDER (RESTORED BUDGET REMAINING) ======
     function renderMeta(rows){
-      const adSetRows = rows.filter(r => String(r.ad_set || "").trim() !== "");
+      const cleaned = rows.map(r => ({
+        campaign: (r.campaign ?? "").trim(),
+        ad_set: (r.ad_set ?? "").trim(),
+        budget: (r.budget ?? "").trim(),
+        spend: (r.spend ?? "").trim(),
+        leads: (r.leads ?? "").trim(),
+        cpl: (r.cpl ?? "").trim(),
+        pace: (r.pace ?? "").trim(),
+        delivery_strategy: (r.delivery_strategy ?? "").trim()
+      }));
 
-      const totalSpend = adSetRows.reduce((s,it)=>s+num(it.spend),0);
-      const totalLeads = adSetRows.reduce((s,it)=>s+num(it.leads),0);
+      // Find remaining in two possible formats:
+      // A) campaign = "Monthly Budget Remaining" and ad_set contains the £ value (your common layout)
+      // B) orphan currency row where campaign/ad_set is just "£1903.26"
+      let remaining = 0;
+
+      const labeled = cleaned.find(r => r.campaign.toLowerCase().startsWith("monthly budget"));
+      if (labeled) {
+        // usually the number is in ad_set (col B) for the export
+        remaining = num(labeled.ad_set) || num(labeled.budget) || num(labeled.spend);
+      } else {
+        const orphan = cleaned.find(r =>
+          isCurrencyLike(r.campaign) &&
+          !r.ad_set && !r.spend && !r.delivery_strategy
+        ) || cleaned.find(r =>
+          isCurrencyLike(r.ad_set) &&
+          !r.campaign && !r.spend && !r.delivery_strategy
+        );
+        if (orphan) remaining = num(orphan.campaign || orphan.ad_set);
+      }
+
+      // Monthly budget: prefer Total Budget & Spend row if present, else infer
+      const totalRow = cleaned.find(r => r.campaign.toLowerCase() === "total budget & spend");
+      const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
+
+      // Detail rows = real ad sets only (exclude remaining/summary rows)
+      const detailRows = cleaned.filter(r => {
+        if (!r.ad_set) return false;
+        if (r.campaign.toLowerCase().startsWith("monthly budget")) return false;
+        if (r.campaign.toLowerCase() === "total budget & spend") return false;
+        if (r.campaign.toLowerCase() === "monthly budget remaining") return false;
+        return true;
+      });
+
+      const totalSpend = detailRows.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = detailRows.reduce((s,it)=>s+num(it.leads),0);
       const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
 
-      // Meta remaining can stay as-is if you're already calculating it elsewhere;
-      // if you ever add a special remaining row, we can mirror the Google logic.
+      const inferredBudget = (monthlyBudget > 0) ? monthlyBudget : (remaining > 0 ? totalSpend + remaining : 0);
+      const usedPct = inferredBudget > 0 ? (totalSpend / inferredBudget) * 100 : 0;
+
       document.getElementById("metaSpend").textContent = money(totalSpend);
       document.getElementById("metaLeads").textContent = intFmt(totalLeads);
       document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
-      document.getElementById("metaRemaining").textContent = "–";
-      document.getElementById("metaUsedPct").textContent = "–";
+      document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
+      document.getElementById("metaUsedPct").textContent = inferredBudget ? usedPct.toFixed(1) + "%" : "–";
 
-      adSetRows.sort((a,b) => num(b.leads) - num(a.leads));
+      // Table sorted by leads
+      detailRows.sort((a,b) => num(b.leads) - num(a.leads));
 
       const tbody = document.querySelector("#metaTable tbody");
       tbody.innerHTML = "";
-      for (const it of adSetRows){
+      for (const it of detailRows){
         const spend = num(it.spend);
         const leads = num(it.leads);
         const rowCpl = leads === 0 ? null : spend / leads;
@@ -340,11 +378,11 @@
         tbody.appendChild(tr);
       }
 
-      const bySpend = [...adSetRows]
+      const bySpend = [...detailRows]
         .map(it => ({ name: it.ad_set, v: num(it.spend) }))
         .sort((a,b)=>b.v-a.v).slice(0,8);
 
-      const byLeads = [...adSetRows]
+      const byLeads = [...detailRows]
         .map(it => ({ name: it.ad_set, v: num(it.leads) }))
         .sort((a,b)=>b.v-a.v).slice(0,8);
 
@@ -355,9 +393,8 @@
       metaLeadsChart = renderLeadsChart("metaLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
-    // ====== GOOGLE RENDER (FIX BUDGET REMAINING ROW) ======
+    // ====== GOOGLE RENDER (BUDGET REMAINING FROM ORPHAN ROW) ======
     function renderGoogle(rows){
-      // Clean rows
       const cleaned = rows
         .map(r => ({
           ad_group: (r.ad_group ?? "").trim(),
@@ -367,31 +404,25 @@
           pace: (r.pace ?? "").trim(),
           delivery_strategy: (r.delivery_strategy ?? "").trim()
         }))
-        .filter(r => r.ad_group !== ""); // keep non-empty
+        .filter(r => r.ad_group !== "");
 
-      // Detect remaining budget in two possible formats:
-      // A) ad_group = "Monthly Budget Remaining" (and spend has the value)
-      // B) ad_group itself is "£762.40" and the rest of the row is blank (like your current sheet)
       let remaining = 0;
-
       const labeledRemaining = cleaned.find(r => r.ad_group.toLowerCase() === "monthly budget remaining");
       if (labeledRemaining) {
         remaining = num(labeledRemaining.spend);
       } else {
-        const weirdCurrencyRow = cleaned.find(r =>
+        const orphan = cleaned.find(r =>
           isCurrencyLike(r.ad_group) &&
           num(r.spend) === 0 &&
           num(r.leads) === 0 &&
-          String(r.delivery_strategy || "").trim() === ""
+          !r.delivery_strategy
         );
-        if (weirdCurrencyRow) remaining = num(weirdCurrencyRow.ad_group);
+        if (orphan) remaining = num(orphan.ad_group);
       }
 
-      // Exclude remaining rows from detail rows
       const detailRows = cleaned.filter(r => {
         const ag = r.ad_group.toLowerCase();
         if (ag === "monthly budget remaining") return false;
-        // remove the weird currency-only row
         if (isCurrencyLike(r.ad_group) && num(r.spend) === 0 && num(r.leads) === 0 && !r.delivery_strategy) return false;
         return true;
       });
@@ -409,7 +440,6 @@
       document.getElementById("gRemaining").textContent = remaining ? money(remaining) : "–";
       document.getElementById("gUsedPct").textContent = inferredBudget ? usedPct.toFixed(1) + "%" : "–";
 
-      // Table sorted by leads
       detailRows.sort((a,b) => num(b.leads) - num(a.leads));
 
       const tbody = document.querySelector("#gTable tbody");
