@@ -73,13 +73,12 @@
     </section>
 
     <section class="panel" style="margin-top:14px">
-      <h3>Ad Set Performance</h3>
+      <h3>Ad Set Performance (sorted by Leads)</h3>
       <div class="muted" style="margin-bottom:10px">Source: Meta_Export (published CSV)</div>
       <div class="tableWrap">
         <table id="metaTable">
           <thead>
             <tr>
-              <th>Campaign</th>
               <th>Ad Set</th>
               <th class="num">Budget</th>
               <th class="num">Spend</th>
@@ -96,12 +95,14 @@
   </main>
 
   <script>
+    // Published Google Sheets CSV for Meta_Export
     const META_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
     const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
     const intFmt = (n) => Number(n || 0).toLocaleString("en-GB");
 
     function parseCsv(csvText){
+      // basic CSV parser that respects quoted commas
       const rows = [];
       let row = [], field = "", inQuotes = false;
       for (let i = 0; i < csvText.length; i++){
@@ -134,7 +135,7 @@
         for (let j=0;j<header.length;j++){
           obj[header[j]] = (rows[i][j] ?? "").trim();
         }
-        if (!obj.ad_set) continue;
+        if (!obj.ad_set) continue; // keep only rows with an ad set name
         out.push(obj);
       }
       return out;
@@ -145,6 +146,7 @@
     function renderTable(items){
       const tbody = document.querySelector("#metaTable tbody");
       tbody.innerHTML = "";
+
       for (const it of items){
         const spend = num(it.spend);
         const leads = num(it.leads);
@@ -155,7 +157,6 @@
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${it.campaign || "—"}</td>
           <td>${it.ad_set || "—"}</td>
           <td class="num">${money(num(it.budget))}</td>
           <td class="num">${money(spend)}</td>
@@ -216,6 +217,9 @@
       const rows = parseCsv(text);
       const items = toObjects(rows);
 
+      // ✅ Sort table rows by most leads first
+      items.sort((a,b) => num(b.leads) - num(a.leads));
+
       renderKpis(items);
       renderCharts(items);
       renderTable(items);
@@ -231,4 +235,5 @@
   </script>
 </body>
 </html>
+
 
