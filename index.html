@@ -98,14 +98,12 @@
   </main>
 
   <script>
-    // Published Google Sheets CSV for Meta_Export
     const META_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
     const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
     const intFmt = (n) => Number(n || 0).toLocaleString("en-GB");
 
     function parseCsv(csvText){
-      // basic CSV parser that respects quoted commas
       const rows = [];
       let row = [], field = "", inQuotes = false;
       for (let i = 0; i < csvText.length; i++){
@@ -143,9 +141,15 @@
       return out;
     }
 
-    function findRow(allRows, adSetName){
-      const target = String(adSetName).trim().toLowerCase();
-      return allRows.find(r => String(r.ad_set || "").trim().toLowerCase() === target) || null;
+    // ✅ Find summary rows by CAMPAIGN (col A in your export)
+    function findRowByCampaign(allRows, campaignText){
+      const target = String(campaignText).trim().toLowerCase();
+      return allRows.find(r => String(r.campaign || "").trim().toLowerCase() === target) || null;
+    }
+
+    // ✅ Find “Monthly Budget Remaining” even if label varies slightly
+    function findMonthlyRemainingRow(allRows){
+      return allRows.find(r => String(r.campaign || "").trim().toLowerCase().startsWith("monthly budget")) || null;
     }
 
     let spendChart, leadsChart;
@@ -182,21 +186,22 @@
       const totalLeads = adSetRows.reduce((s,it)=>s+num(it.leads),0);
       const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
 
-      // ✅ Monthly budget + remaining pulled from the totals rows
-      // In your Meta_Export:
-      // - "Total Budget & Spend" row: budget column = monthly budget
-      // - "Monthly Budget Remaining" row: spend column = remaining budget (because A is label, C is blank, D holds the number)
-      const totalRow = findRow(allRows, "Total Budget & Spend");
-      const remainingRow = findRow(allRows, "Monthly Budget");
-
+      // ✅ Monthly budget from "Total Budget & Spend" row (Budget column)
+      const totalRow = findRowByCampaign(allRows, "Total Budget & Spend");
       const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
-      const remaining = remainingRow ? num(remainingRow.spend) : 0;
 
-      const usedPct = monthlyBudget === 0 ? 0 : ((monthlyBudget - remaining) / monthlyBudget) * 100;
+      // ✅ Remaining from "Monthly Budget Remaining" row (value sits in Ad Set column in your export)
+      const remainingRow = findMonthlyRemainingRow(allRows);
+      const remaining = remainingRow ? num(remainingRow.ad_set) : 0;
+
+      const usedPct = (monthlyBudget > 0)
+        ? ((monthlyBudget - remaining) / monthlyBudget) * 100
+        : 0;
 
       document.getElementById("metaSpend").textContent = money(totalSpend);
       document.getElementById("metaLeads").textContent = intFmt(totalLeads);
       document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
+
       document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
       document.getElementById("metaUsedPct").textContent = monthlyBudget ? usedPct.toFixed(1) + "%" : "–";
     }
