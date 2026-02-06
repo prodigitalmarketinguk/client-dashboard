@@ -215,8 +215,17 @@
       return rows.filter(r => r.some(x => String(x).trim() !== ""));
     }
 
+    // ✅ Normalise header names so "Ad Group" becomes "ad_group", etc.
+    function normKey(k){
+      return String(k || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
     function buildObjects(rows){
-      const header = rows[0].map(h => h.trim().toLowerCase());
+      const header = rows[0].map(h => normKey(h));
       const out = [];
       for (let i=1;i<rows.length;i++){
         const obj = {};
@@ -349,11 +358,25 @@
       metaLeadsChart = renderLeadsChart("metaLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
-    // ====== GOOGLE RENDER ======
-    // Expected columns in Google_Export CSV:
-    // ad_group, spend, leads, pace, delivery_strategy
+    // ====== GOOGLE RENDER (supports header variations) ======
+    function firstKey(obj, keys){
+      for (const k of keys){
+        if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
+      }
+      return "";
+    }
+
     function renderGoogle(allRows){
-      const rows = allRows.filter(r => r.ad_group);
+      // Map whatever the sheet headers are into the fields we need
+      const rows = allRows
+        .map(r => ({
+          ad_group: firstKey(r, ["ad_group","adgroup","ad_group_name","adgroup_name","ad_group_title","ad_group_label"]),
+          spend: firstKey(r, ["spend","cost","amount_spent"]),
+          leads: firstKey(r, ["leads","conversions","conv","results"]),
+          pace: firstKey(r, ["pace"]),
+          delivery_strategy: firstKey(r, ["delivery_strategy","bidding_strategy","bid_strategy","strategy"])
+        }))
+        .filter(r => String(r.ad_group).trim() !== "");
 
       const totalSpend = rows.reduce((s,it)=>s+num(it.spend),0);
       const totalLeads = rows.reduce((s,it)=>s+num(it.leads),0);
@@ -385,7 +408,7 @@
           <td class="num">${intFmt(leads)}</td>
           <td class="num">${rowCpl === null ? "–" : money(rowCpl)}</td>
           <td><span class="tag ${paceTag}">${it.pace || "—"}</span></td>
-          <td>${it.delivery_strategy || it.deliverystrategy || it.delivery || "—"}</td>
+          <td>${it.delivery_strategy || "—"}</td>
         `;
         tbody.appendChild(tr);
       }
