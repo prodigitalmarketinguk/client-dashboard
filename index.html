@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Marketing Performance Dashboard</title>
+  <title>Meta Ads Dashboard</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,34 +18,39 @@
       --ink:#011627;
       --bg:#F5F7FA;
       --white:#FFFFFF;
+      --line: rgba(1,22,39,.10);
     }
     body{margin:0;font-family:Poppins,sans-serif;background:var(--bg);color:var(--ink);}
     header{background:var(--navy);color:var(--white);padding:22px 20px;}
-    .wrap{max-width:1100px;margin:0 auto;padding:18px;}
-    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px;}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px;}
+    .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;}
     .card{background:var(--white);border-radius:16px;padding:14px 14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:6px solid var(--teal);}
     .label{font-size:12px;opacity:.75;text-transform:uppercase;letter-spacing:.08em}
     .value{font-size:26px;font-weight:700;margin-top:6px}
-    .sub{font-size:12px;opacity:.75;margin-top:6px}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;}
     .panel{background:var(--white);border-radius:16px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
     .panel h3{margin:0 0 10px 0;font-size:14px}
-    .muted{opacity:.8}
-    .row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px}
     .pill{padding:6px 10px;border-radius:999px;background:rgba(62,214,211,.18);font-size:12px;font-weight:600}
-    @media (max-width:980px){.kpis{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}
+    .tableWrap{overflow:auto;border:1px solid var(--line);border-radius:14px;}
+    table{border-collapse:collapse;width:100%;min-width:900px;background:#fff;}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap;text-align:left;}
+    th{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;background:#fff;position:sticky;top:0;z-index:1;}
+    td.num{text-align:right;font-variant-numeric:tabular-nums;}
+    .muted{opacity:.75}
+    .tag{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+    .tag.on{background:rgba(62,214,211,.18);}
+    .tag.behind{background:rgba(255,99,132,.12);}
+    @media (max-width:980px){.kpis{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <header>
-    <div class="wrap">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div>
-          <div style="font-weight:700;font-size:20px">Marketing Performance Dashboard</div>
-          <div class="muted" id="period">Live from Google Sheets</div>
-        </div>
-        <div class="pill" id="lastUpdated">Loading…</div>
+    <div class="wrap" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:700;font-size:20px">Meta Ads Performance Dashboard</div>
+        <div class="muted">Live from Google Sheets</div>
       </div>
+      <div class="pill" id="lastUpdated">Loading…</div>
     </div>
   </header>
 
@@ -53,109 +58,170 @@
     <section class="kpis">
       <div class="card"><div class="label">Meta Spend</div><div class="value" id="metaSpend">–</div></div>
       <div class="card"><div class="label">Meta Leads</div><div class="value" id="metaLeads">–</div></div>
-      <div class="card"><div class="label">Google Spend</div><div class="value" id="googleSpend">–</div></div>
-      <div class="card"><div class="label">Google Leads</div><div class="value" id="googleLeads">–</div></div>
-    </section>
-
-    <section class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">
-      <div class="card"><div class="label">Total Spend</div><div class="value" id="totalSpend">–</div></div>
-      <div class="card"><div class="label">Total Leads</div><div class="value" id="totalLeads">–</div></div>
-      <div class="card"><div class="label">Blended CPL</div><div class="value" id="blendedCpl">–</div></div>
+      <div class="card"><div class="label">Meta CPL</div><div class="value" id="metaCpl">–</div></div>
     </section>
 
     <section class="grid">
       <div class="panel">
-        <h3>Spend by Channel</h3>
-        <canvas id="spendChart"></canvas>
+        <h3>Top Ad Sets by Spend</h3>
+        <canvas id="topSpendChart"></canvas>
       </div>
       <div class="panel">
-        <h3>Leads by Channel</h3>
-        <canvas id="leadsChart"></canvas>
+        <h3>Top Ad Sets by Leads</h3>
+        <canvas id="topLeadsChart"></canvas>
       </div>
     </section>
 
     <section class="panel" style="margin-top:14px">
-      <h3>Notes</h3>
-      <div class="muted">Add a “Notes” field to your sheet later if you want this to pull through too.</div>
-      <div class="row"><div class="muted">Tip:</div><div class="pill">Refresh page after updates</div></div>
+      <h3>Ad Set Performance</h3>
+      <div class="muted" style="margin-bottom:10px">Source: Meta_Export (published CSV)</div>
+      <div class="tableWrap">
+        <table id="metaTable">
+          <thead>
+            <tr>
+              <th>Campaign</th>
+              <th>Ad Set</th>
+              <th class="num">Budget</th>
+              <th class="num">Spend</th>
+              <th class="num">Leads</th>
+              <th class="num">CPL</th>
+              <th>Pace</th>
+              <th>Delivery Strategy</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
   <script>
     const META_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
+    const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
+    const intFmt = (n) => Number(n || 0).toLocaleString("en-GB");
 
-    const money = (n) =>
-      Number(n || 0).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
-
-    function parseCsvToMap(csvText) {
-      const lines = csvText.trim().split(/\r?\n/);
-      // expecting: metric,value
-      const map = {};
-      for (let i = 1; i < lines.length; i++) {
-        const [metric, value] = lines[i].split(",");
-        if (!metric) continue;
-        map[metric.trim()] = (value ?? "").trim();
+    function parseCsv(csvText){
+      const rows = [];
+      let row = [], field = "", inQuotes = false;
+      for (let i = 0; i < csvText.length; i++){
+        const c = csvText[i], next = csvText[i+1];
+        if (c === '"' && inQuotes && next === '"'){ field += '"'; i++; continue; }
+        if (c === '"'){ inQuotes = !inQuotes; continue; }
+        if (c === ',' && !inQuotes){ row.push(field); field=""; continue; }
+        if ((c === '\n' || c === '\r') && !inQuotes){
+          if (field.length || row.length){ row.push(field); rows.push(row); }
+          field=""; row=[];
+          continue;
+        }
+        field += c;
       }
-      return map;
+      if (field.length || row.length){ row.push(field); rows.push(row); }
+      return rows.filter(r => r.some(x => String(x).trim() !== ""));
     }
 
     function num(x){
-      // handle blanks; force number
       const v = String(x ?? "").replace(/£/g,"").replace(/,/g,"").trim();
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
     }
 
+    function toObjects(rows){
+      const header = rows[0].map(h => h.trim().toLowerCase());
+      const out = [];
+      for (let i=1;i<rows.length;i++){
+        const obj = {};
+        for (let j=0;j<header.length;j++){
+          obj[header[j]] = (rows[i][j] ?? "").trim();
+        }
+        if (!obj.ad_set) continue;
+        out.push(obj);
+      }
+      return out;
+    }
+
     let spendChart, leadsChart;
 
-    function render(data){
-      const metaSpend = num(data.meta_spend);
-      const metaLeads = num(data.meta_leads);
-      const googleSpend = num(data.google_spend);
-      const googleLeads = num(data.google_leads);
+    function renderTable(items){
+      const tbody = document.querySelector("#metaTable tbody");
+      tbody.innerHTML = "";
+      for (const it of items){
+        const spend = num(it.spend);
+        const leads = num(it.leads);
+        const cpl = leads === 0 ? null : spend / leads;
 
-      const totalSpend = metaSpend + googleSpend;
-      const totalLeads = metaLeads + googleLeads;
-      const blendedCpl = totalLeads === 0 ? 0 : totalSpend / totalLeads;
+        const pace = (it.pace || "").toLowerCase();
+        const paceTag = pace.includes("behind") ? "behind" : "on";
 
-      document.getElementById("metaSpend").textContent = money(metaSpend);
-      document.getElementById("metaLeads").textContent = metaLeads.toLocaleString("en-GB");
-      document.getElementById("googleSpend").textContent = money(googleSpend);
-      document.getElementById("googleLeads").textContent = googleLeads.toLocaleString("en-GB");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.campaign || "—"}</td>
+          <td>${it.ad_set || "—"}</td>
+          <td class="num">${money(num(it.budget))}</td>
+          <td class="num">${money(spend)}</td>
+          <td class="num">${intFmt(leads)}</td>
+          <td class="num">${cpl === null ? "–" : money(cpl)}</td>
+          <td><span class="tag ${paceTag}">${it.pace || "—"}</span></td>
+          <td>${it.delivery_strategy || it.deliverystrategy || it.delivery || "—"}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
 
-      document.getElementById("totalSpend").textContent = money(totalSpend);
-      document.getElementById("totalLeads").textContent = totalLeads.toLocaleString("en-GB");
-      document.getElementById("blendedCpl").textContent = totalLeads === 0 ? "–" : money(blendedCpl);
+    function renderKpis(items){
+      const totalSpend = items.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = items.reduce((s,it)=>s+num(it.leads),0);
+      const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
 
-      document.getElementById("lastUpdated").textContent =
-        "Updated: " + new Date().toLocaleString("en-GB");
+      document.getElementById("metaSpend").textContent = money(totalSpend);
+      document.getElementById("metaLeads").textContent = intFmt(totalLeads);
+      document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
+    }
 
-      const spendData = [metaSpend, googleSpend];
-      const leadsData = [metaLeads, googleLeads];
+    function renderCharts(items){
+      const bySpend = [...items]
+        .map(it => ({ name: it.ad_set, v: num(it.spend) }))
+        .sort((a,b)=>b.v-a.v)
+        .slice(0,8);
+
+      const byLeads = [...items]
+        .map(it => ({ name: it.ad_set, v: num(it.leads) }))
+        .sort((a,b)=>b.v-a.v)
+        .slice(0,8);
 
       if (spendChart) spendChart.destroy();
       if (leadsChart) leadsChart.destroy();
 
-      spendChart = new Chart(document.getElementById("spendChart"), {
-        type: "bar",
-        data: { labels: ["Meta", "Google"], datasets: [{ label: "Spend", data: spendData }] },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+      spendChart = new Chart(document.getElementById("topSpendChart"),{
+        type:"bar",
+        data:{ labels: bySpend.map(x=>x.name), datasets:[{ label:"Spend", data: bySpend.map(x=>x.v) }] },
+        options:{ responsive:true, plugins:{ legend:{ display:false } } }
       });
 
-      leadsChart = new Chart(document.getElementById("leadsChart"), {
-        type: "bar",
-        data: { labels: ["Meta", "Google"], datasets: [{ label: "Leads", data: leadsData }] },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+      leadsChart = new Chart(document.getElementById("topLeadsChart"),{
+        type:"bar",
+        data:{ labels: byLeads.map(x=>x.name), datasets:[{ label:"Leads", data: byLeads.map(x=>x.v) }] },
+        options:{ responsive:true, plugins:{ legend:{ display:false } } }
       });
     }
 
     async function load(){
-      const res = await fetch(CSV_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to load CSV");
-      const csv = await res.text();
-      const map = parseCsvToMap(csv);
-      render(map);
+      const res = await fetch(META_CSV_URL, { cache:"no-store" });
+      if (!res.ok) throw new Error("Failed to load Meta CSV");
+      const text = await res.text();
+      if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")){
+        throw new Error("CSV URL returned HTML (not published or not public).");
+      }
+
+      const rows = parseCsv(text);
+      const items = toObjects(rows);
+
+      renderKpis(items);
+      renderCharts(items);
+      renderTable(items);
+
+      document.getElementById("lastUpdated").textContent =
+        "Updated: " + new Date().toLocaleString("en-GB");
     }
 
     load().catch(err => {
@@ -165,3 +231,4 @@
   </script>
 </body>
 </html>
+
