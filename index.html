@@ -38,6 +38,11 @@
       font-weight:600;
       cursor:pointer;
     }
+    .tabbtn.activeությ{
+      background:#fff;
+      color:var(--navy);
+      border-color:#fff;
+    }
     .tabbtn.active{
       background:#fff;
       color:var(--navy);
@@ -55,13 +60,18 @@
 
     .tableWrap{overflow:auto;border:1px solid var(--line);border-radius:14px;}
     table{border-collapse:collapse;width:100%;min-width:900px;background:#fff;}
-    th,td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap;text-align:left;}
-    th{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;background:#fff;position:sticky;top:0;z-index:1;}
-    td.num{text-align:right;font-variant-numeric:tabular-nums;}
-
-    .tag{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
-    .tag.on{background:rgba(62,214,211,.18);}
-    .tag.behind{background:rgba(255,99,132,.12);}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap;vertical-align:middle;}
+    th{
+      font-size:12px;
+      opacity:.8;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      background:#fff;
+      position:sticky;top:0;z-index:1;
+      text-align:left;
+    }
+    th.num, td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+    td{ text-align:left; }
 
     .view{display:none;}
     .view.active{display:block;}
@@ -91,7 +101,7 @@
 
   <main class="wrap">
 
-    <!-- ===================== META VIEW ===================== -->
+    <!-- META -->
     <section class="view active" id="view-meta">
       <section class="kpis">
         <div class="card"><div class="label">Meta Spend</div><div class="value" id="metaSpend">–</div></div>
@@ -133,7 +143,7 @@
       </section>
     </section>
 
-    <!-- ===================== GOOGLE VIEW ===================== -->
+    <!-- GOOGLE -->
     <section class="view" id="view-google">
       <section class="kpis">
         <div class="card"><div class="label">Google Spend</div><div class="value" id="gSpend">–</div></div>
@@ -180,11 +190,10 @@
   <script>
     // ====== CSV URLS ======
     const META_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
-const GOOGLE_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1321414260&single=true&output=csv";
-
+    const GOOGLE_CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1321414260&single=true&output=csv";
 
     // ====== FORMAT HELPERS ======
     const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
@@ -194,6 +203,13 @@ const GOOGLE_CSV_URL =
       const v = String(x ?? "").replace(/£/g,"").replace(/,/g,"").trim();
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
+    }
+
+    function isCurrencyLike(s){
+      const t = String(s ?? "").trim();
+      if (!t) return false;
+      // Matches: £762.40, 762.40, 762
+      return /^£?\d+(\.\d+)?$/.test(t.replace(/,/g,""));
     }
 
     // ====== CSV PARSER ======
@@ -216,7 +232,6 @@ const GOOGLE_CSV_URL =
       return rows.filter(r => r.some(x => String(x).trim() !== ""));
     }
 
-    // ✅ Normalise header names so "Ad Group" becomes "ad_group", etc.
     function normKey(k){
       return String(k || "")
         .trim()
@@ -236,15 +251,6 @@ const GOOGLE_CSV_URL =
         out.push(obj);
       }
       return out;
-    }
-
-    // ====== SUMMARY ROW FINDERS (META) ======
-    function findRowByCampaign(allRows, campaignText){
-      const target = String(campaignText).trim().toLowerCase();
-      return allRows.find(r => String(r.campaign || "").trim().toLowerCase() === target) || null;
-    }
-    function findMonthlyRemainingRow(allRows){
-      return allRows.find(r => String(r.campaign || "").trim().toLowerCase().startsWith("monthly budget")) || null;
     }
 
     // ====== TAB SWITCHING ======
@@ -267,7 +273,7 @@ const GOOGLE_CSV_URL =
       viewMeta.classList.remove("active");
     });
 
-    // ====== CHART INSTANCES ======
+    // ====== CHARTS ======
     let metaSpendChart, metaLeadsChart, gSpendChart, gLeadsChart;
 
     function renderSpendChart(canvasId, labels, values){
@@ -298,28 +304,20 @@ const GOOGLE_CSV_URL =
     }
 
     // ====== META RENDER ======
-    function renderMeta(allRows){
-      const adSetRows = allRows.filter(r => r.ad_set);
+    function renderMeta(rows){
+      const adSetRows = rows.filter(r => String(r.ad_set || "").trim() !== "");
 
       const totalSpend = adSetRows.reduce((s,it)=>s+num(it.spend),0);
       const totalLeads = adSetRows.reduce((s,it)=>s+num(it.leads),0);
       const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
 
-      const totalRow = findRowByCampaign(allRows, "Total Budget & Spend");
-      const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
-
-      const remainingRow = findMonthlyRemainingRow(allRows);
-      const remaining = remainingRow ? num(remainingRow.ad_set) : 0;
-
-      const usedPct = (monthlyBudget > 0)
-        ? ((monthlyBudget - remaining) / monthlyBudget) * 100
-        : 0;
-
+      // Meta remaining can stay as-is if you're already calculating it elsewhere;
+      // if you ever add a special remaining row, we can mirror the Google logic.
       document.getElementById("metaSpend").textContent = money(totalSpend);
       document.getElementById("metaLeads").textContent = intFmt(totalLeads);
       document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
-      document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
-      document.getElementById("metaUsedPct").textContent = monthlyBudget ? usedPct.toFixed(1) + "%" : "–";
+      document.getElementById("metaRemaining").textContent = "–";
+      document.getElementById("metaUsedPct").textContent = "–";
 
       adSetRows.sort((a,b) => num(b.leads) - num(a.leads));
 
@@ -329,8 +327,6 @@ const GOOGLE_CSV_URL =
         const spend = num(it.spend);
         const leads = num(it.leads);
         const rowCpl = leads === 0 ? null : spend / leads;
-        const pace = (it.pace || "").toLowerCase();
-        const paceTag = pace.includes("behind") ? "behind" : "on";
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -338,8 +334,8 @@ const GOOGLE_CSV_URL =
           <td class="num">${money(spend)}</td>
           <td class="num">${intFmt(leads)}</td>
           <td class="num">${rowCpl === null ? "–" : money(rowCpl)}</td>
-          <td><span class="tag ${paceTag}">${it.pace || "—"}</span></td>
-          <td>${it.delivery_strategy || it.deliverystrategy || it.delivery || "—"}</td>
+          <td>${it.pace || "—"}</td>
+          <td>${it.delivery_strategy || "—"}</td>
         `;
         tbody.appendChild(tr);
       }
@@ -359,48 +355,69 @@ const GOOGLE_CSV_URL =
       metaLeadsChart = renderLeadsChart("metaLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
-    // ====== GOOGLE RENDER (supports header variations) ======
-    function firstKey(obj, keys){
-      for (const k of keys){
-        if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
-      }
-      return "";
-    }
-
-    function renderGoogle(allRows){
-      // Map whatever the sheet headers are into the fields we need
-      const rows = allRows
+    // ====== GOOGLE RENDER (FIX BUDGET REMAINING ROW) ======
+    function renderGoogle(rows){
+      // Clean rows
+      const cleaned = rows
         .map(r => ({
-          ad_group: firstKey(r, ["ad_group","adgroup","ad_group_name","adgroup_name","ad_group_title","ad_group_label"]),
-          spend: firstKey(r, ["spend","cost","amount_spent"]),
-          leads: firstKey(r, ["leads","conversions","conv","results"]),
-          pace: firstKey(r, ["pace"]),
-          delivery_strategy: firstKey(r, ["delivery_strategy","bidding_strategy","bid_strategy","strategy"])
+          ad_group: (r.ad_group ?? "").trim(),
+          spend: (r.spend ?? "").trim(),
+          leads: (r.leads ?? "").trim(),
+          cpl: (r.cpl ?? "").trim(),
+          pace: (r.pace ?? "").trim(),
+          delivery_strategy: (r.delivery_strategy ?? "").trim()
         }))
-        .filter(r => String(r.ad_group).trim() !== "");
+        .filter(r => r.ad_group !== ""); // keep non-empty
 
-      const totalSpend = rows.reduce((s,it)=>s+num(it.spend),0);
-      const totalLeads = rows.reduce((s,it)=>s+num(it.leads),0);
-      const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
+      // Detect remaining budget in two possible formats:
+      // A) ad_group = "Monthly Budget Remaining" (and spend has the value)
+      // B) ad_group itself is "£762.40" and the rest of the row is blank (like your current sheet)
+      let remaining = 0;
+
+      const labeledRemaining = cleaned.find(r => r.ad_group.toLowerCase() === "monthly budget remaining");
+      if (labeledRemaining) {
+        remaining = num(labeledRemaining.spend);
+      } else {
+        const weirdCurrencyRow = cleaned.find(r =>
+          isCurrencyLike(r.ad_group) &&
+          num(r.spend) === 0 &&
+          num(r.leads) === 0 &&
+          String(r.delivery_strategy || "").trim() === ""
+        );
+        if (weirdCurrencyRow) remaining = num(weirdCurrencyRow.ad_group);
+      }
+
+      // Exclude remaining rows from detail rows
+      const detailRows = cleaned.filter(r => {
+        const ag = r.ad_group.toLowerCase();
+        if (ag === "monthly budget remaining") return false;
+        // remove the weird currency-only row
+        if (isCurrencyLike(r.ad_group) && num(r.spend) === 0 && num(r.leads) === 0 && !r.delivery_strategy) return false;
+        return true;
+      });
+
+      const totalSpend = detailRows.reduce((s,it)=>s+num(it.spend),0);
+      const totalLeads = detailRows.reduce((s,it)=>s+num(it.leads),0);
+      const blendedCpl = totalLeads === 0 ? null : totalSpend / totalLeads;
+
+      const inferredBudget = remaining > 0 ? (totalSpend + remaining) : 0;
+      const usedPct = inferredBudget > 0 ? (totalSpend / inferredBudget) * 100 : 0;
 
       document.getElementById("gSpend").textContent = money(totalSpend);
       document.getElementById("gLeads").textContent = intFmt(totalLeads);
-      document.getElementById("gCpl").textContent = cpl === null ? "–" : money(cpl);
+      document.getElementById("gCpl").textContent = blendedCpl === null ? "–" : money(blendedCpl);
+      document.getElementById("gRemaining").textContent = remaining ? money(remaining) : "–";
+      document.getElementById("gUsedPct").textContent = inferredBudget ? usedPct.toFixed(1) + "%" : "–";
 
-      // Budget fields (optional): add summary rows to Google_Export later if you want these too
-      document.getElementById("gRemaining").textContent = "–";
-      document.getElementById("gUsedPct").textContent = "–";
-
-      rows.sort((a,b) => num(b.leads) - num(a.leads));
+      // Table sorted by leads
+      detailRows.sort((a,b) => num(b.leads) - num(a.leads));
 
       const tbody = document.querySelector("#gTable tbody");
       tbody.innerHTML = "";
-      for (const it of rows){
+      for (const it of detailRows){
         const spend = num(it.spend);
         const leads = num(it.leads);
         const rowCpl = leads === 0 ? null : spend / leads;
-        const pace = (it.pace || "").toLowerCase();
-        const paceTag = pace.includes("behind") ? "behind" : "on";
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -408,17 +425,17 @@ const GOOGLE_CSV_URL =
           <td class="num">${money(spend)}</td>
           <td class="num">${intFmt(leads)}</td>
           <td class="num">${rowCpl === null ? "–" : money(rowCpl)}</td>
-          <td><span class="tag ${paceTag}">${it.pace || "—"}</span></td>
+          <td>${it.pace || "—"}</td>
           <td>${it.delivery_strategy || "—"}</td>
         `;
         tbody.appendChild(tr);
       }
 
-      const bySpend = [...rows]
+      const bySpend = [...detailRows]
         .map(it => ({ name: it.ad_group, v: num(it.spend) }))
         .sort((a,b)=>b.v-a.v).slice(0,8);
 
-      const byLeads = [...rows]
+      const byLeads = [...detailRows]
         .map(it => ({ name: it.ad_group, v: num(it.leads) }))
         .sort((a,b)=>b.v-a.v).slice(0,8);
 
@@ -429,7 +446,7 @@ const GOOGLE_CSV_URL =
       gLeadsChart = renderLeadsChart("gLeadsChart", byLeads.map(x=>x.name), byLeads.map(x=>x.v));
     }
 
-    // ====== LOAD BOTH DATASETS ======
+    // ====== LOAD ======
     async function fetchCsvObjects(url){
       const res = await fetch(url, { cache:"no-store" });
       if (!res.ok) throw new Error("Failed to load CSV");
