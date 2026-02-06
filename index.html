@@ -83,7 +83,6 @@
           <thead>
             <tr>
               <th>Ad Set</th>
-              <th class="num">Budget</th>
               <th class="num">Spend</th>
               <th class="num">Leads</th>
               <th class="num">CPL</th>
@@ -98,6 +97,7 @@
   </main>
 
   <script>
+    // Published Google Sheets CSV for Meta_Export
     const META_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaAQ-x37eMhwmwswWuQ89R6EW1DKxSD69UKqx8YXz2LxeSac0r8SSnWBKmO90BhbKpVFEC55I8RgyR/pub?gid=1218045846&single=true&output=csv";
 
     const money = (n) => Number(n || 0).toLocaleString("en-GB",{style:"currency",currency:"GBP"});
@@ -141,13 +141,11 @@
       return out;
     }
 
-    // ✅ Find summary rows by CAMPAIGN (col A in your export)
     function findRowByCampaign(allRows, campaignText){
       const target = String(campaignText).trim().toLowerCase();
       return allRows.find(r => String(r.campaign || "").trim().toLowerCase() === target) || null;
     }
 
-    // ✅ Find “Monthly Budget Remaining” even if label varies slightly
     function findMonthlyRemainingRow(allRows){
       return allRows.find(r => String(r.campaign || "").trim().toLowerCase().startsWith("monthly budget")) || null;
     }
@@ -169,7 +167,6 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${it.ad_set || "—"}</td>
-          <td class="num">${money(num(it.budget))}</td>
           <td class="num">${money(spend)}</td>
           <td class="num">${intFmt(leads)}</td>
           <td class="num">${cpl === null ? "–" : money(cpl)}</td>
@@ -181,16 +178,15 @@
     }
 
     function renderKpis(adSetRows, allRows){
-      // Spend/leads/CPL based on ad set rows (same as table)
       const totalSpend = adSetRows.reduce((s,it)=>s+num(it.spend),0);
       const totalLeads = adSetRows.reduce((s,it)=>s+num(it.leads),0);
       const cpl = totalLeads === 0 ? null : totalSpend / totalLeads;
 
-      // ✅ Monthly budget from "Total Budget & Spend" row (Budget column)
+      // Monthly budget comes from "Total Budget & Spend" row (Budget column)
       const totalRow = findRowByCampaign(allRows, "Total Budget & Spend");
       const monthlyBudget = totalRow ? num(totalRow.budget) : 0;
 
-      // ✅ Remaining from "Monthly Budget Remaining" row (value sits in Ad Set column in your export)
+      // Monthly remaining is on "Monthly Budget Remaining" row, stored in the Ad Set column
       const remainingRow = findMonthlyRemainingRow(allRows);
       const remaining = remainingRow ? num(remainingRow.ad_set) : 0;
 
@@ -201,7 +197,6 @@
       document.getElementById("metaSpend").textContent = money(totalSpend);
       document.getElementById("metaLeads").textContent = intFmt(totalLeads);
       document.getElementById("metaCpl").textContent = cpl === null ? "–" : money(cpl);
-
       document.getElementById("metaRemaining").textContent = remaining ? money(remaining) : "–";
       document.getElementById("metaUsedPct").textContent = monthlyBudget ? usedPct.toFixed(1) + "%" : "–";
     }
@@ -222,8 +217,20 @@
 
       spendChart = new Chart(document.getElementById("topSpendChart"),{
         type:"bar",
-        data:{ labels: bySpend.map(x=>x.name), datasets:[{ label:"Spend", data: bySpend.map(x=>x.v) }] },
-        options:{ responsive:true, plugins:{ legend:{ display:false } } }
+        data:{
+          labels: bySpend.map(x=>x.name),
+          datasets:[{ label:"£ Spent", data: bySpend.map(x=>x.v) }]
+        },
+        options:{
+          responsive:true,
+          plugins:{ legend:{ display:false } },
+          scales:{
+            y:{
+              title:{ display:true, text:"£ Spent" },
+              ticks:{ callback:(value)=>"£" + Number(value).toLocaleString("en-GB") }
+            }
+          }
+        }
       });
 
       leadsChart = new Chart(document.getElementById("topLeadsChart"),{
@@ -244,8 +251,8 @@
       const rows = parseCsv(text);
       const allRows = buildObjects(rows);
 
-      // Keep only ad set rows for the table/charts
-      const adSetRows = allRows.filter(r => r.ad_set);
+      // Only ad set rows for table/charts (ignores campaign headers + totals)
+      const adSetRows = allRows.filter(r => r.ad_set && String(r.campaign || "").trim().toLowerCase() !== "monthly budget");
 
       // Sort table rows by most leads first
       adSetRows.sort((a,b) => num(b.leads) - num(a.leads));
